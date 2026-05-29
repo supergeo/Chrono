@@ -12,447 +12,912 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Chronomètre</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap');
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --bg: #0a0c10;
-    --panel: #111520;
-    --border: #1e2840;
-    --accent: #00e5ff;
-    --accent2: #ff4757;
-    --accent3: #ffd32a;
-    --text: #e8eaf6;
-    --muted: #4a5568;
-  }
+:root {
+  --bg: #0a0c10;
+  --panel: #111520;
+  --border: #1e2840;
+  --cyan: #00e5ff;
+  --red: #ff4757;
+  --green: #2ed573;
+  --yellow: #ffd32a;
+  --text: #e8eaf6;
+  --muted: #4a5568;
+  --ring-color: var(--cyan);
+}
 
-  html, body {
-    height: 100%; width: 100%;
-    overflow: hidden;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Space Mono', monospace;
-    /* safe areas for notch / home bar */
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+html, body {
+  height: 100%; width: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+}
 
-  body {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    padding: calc(8px + env(safe-area-inset-top)) 10px calc(6px + env(safe-area-inset-bottom));
-    gap: 6px;
-    background-image:
-      radial-gradient(ellipse at 20% 0%, rgba(0,229,255,0.07) 0%, transparent 55%),
-      radial-gradient(ellipse at 80% 100%, rgba(255,71,87,0.05) 0%, transparent 55%);
-  }
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: calc(8px + env(safe-area-inset-top)) 10px calc(6px + env(safe-area-inset-bottom));
+  gap: 5px;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(0,229,255,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 100%, rgba(255,71,87,0.05) 0%, transparent 55%);
+}
 
-  /* ─── HEADER ─── */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-    padding: 0 2px;
-  }
+/* ════════════════════════════════
+   HEADER
+════════════════════════════════ */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 6px;
+}
 
-  .logo {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(20px, 4vw, 28px);
-    letter-spacing: 5px;
-    color: var(--accent);
-    text-shadow: 0 0 20px rgba(0,229,255,0.5);
-  }
+.logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(18px, 4vw, 26px);
+  letter-spacing: 5px;
+  color: var(--cyan);
+  text-shadow: 0 0 20px rgba(0,229,255,0.5);
+  flex-shrink: 0;
+}
 
-  .set-block {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 4px 12px;
-  }
+/* Mode toggle (hourglass) */
+.btn-mode {
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  border: 2px solid var(--muted);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
+  flex-shrink: 0;
+  position: relative;
+}
+.btn-mode.interval {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 10px rgba(0,229,255,0.25);
+}
+/* Strikethrough line for "barré" */
+.btn-mode .strike {
+  position: absolute;
+  width: 26px; height: 2px;
+  background: var(--red);
+  transform: rotate(-45deg);
+  border-radius: 2px;
+  transition: opacity .2s;
+}
+.btn-mode.interval .strike { opacity: 0; }
 
-  .set-label {
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
+/* Sets block */
+.set-block {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px 10px;
+}
+.set-label { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+.set-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(22px, 5vw, 32px);
+  color: var(--yellow);
+  min-width: 32px;
+  text-align: center;
+  text-shadow: 0 0 12px rgba(255,211,42,0.4);
+}
+.set-target {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(13px, 2.5vw, 18px);
+  color: var(--muted);
+}
 
-  .set-value {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(24px, 5vw, 36px);
-    color: var(--accent3);
-    min-width: 38px;
-    text-align: center;
-    text-shadow: 0 0 12px rgba(255,211,42,0.4);
-  }
+/* Sets target input */
+.set-target-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.set-target-wrap label { font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+.input-sets {
+  width: 36px; height: 30px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--yellow);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.input-sets::-webkit-outer-spin-button,
+.input-sets::-webkit-inner-spin-button { -webkit-appearance: none; }
+.input-sets:focus { border-color: var(--yellow); }
 
-  .btn-reset {
-    background: none;
-    border: 1px solid var(--muted);
-    color: var(--muted);
-    font-family: 'Space Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-    padding: 4px 9px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .btn-reset:hover { border-color: var(--accent2); color: var(--accent2); }
+.btn-reset {
+  background: none;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.btn-reset:hover { border-color: var(--red); color: var(--red); }
 
-  /* ─── RING SECTION ─── */
-  .ring-section {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(12px, 3vw, 28px);
-    flex-shrink: 0;
-  }
+/* ════════════════════════════════
+   RING
+════════════════════════════════ */
+.ring-section {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 3vw, 24px);
+  flex-shrink: 0;
+}
 
-  .ring-wrap {
-    position: relative;
-    width: min(38vw, 38vh, 260px);
-    height: min(38vw, 38vh, 260px);
-    flex-shrink: 0;
-  }
+.ring-wrap {
+  position: relative;
+  width: min(36vw, 36vh, 240px);
+  height: min(36vw, 36vh, 240px);
+  flex-shrink: 0;
+}
 
-  .ring-svg {
-    width: 100%; height: 100%;
-    transform: rotate(-90deg);
-  }
+.ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-track { fill: none; stroke: var(--border); stroke-width: 11; }
+.ring-progress {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 11;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s linear, stroke 0.3s;
+  filter: drop-shadow(0 0 7px var(--cyan));
+}
+.ring-progress.red   { stroke: var(--red);   filter: drop-shadow(0 0 8px var(--red)); }
+.ring-progress.green { stroke: var(--green); filter: drop-shadow(0 0 8px var(--green)); }
+.ring-progress.danger {
+  animation: pulsering 0.5s ease-in-out infinite alternate;
+}
+@keyframes pulsering { from { opacity:1; } to { opacity:0.4; } }
 
-  .ring-track {
-    fill: none;
-    stroke: var(--border);
-    stroke-width: 11;
-  }
+.ring-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
 
-  .ring-progress {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 11;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.9s linear, stroke 0.3s;
-    filter: drop-shadow(0 0 7px var(--accent));
-  }
+.phase-badge {
+  font-size: clamp(7px, 1.5vw, 10px);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  color: var(--muted);
+  transition: color .3s;
+}
+.phase-badge.work  { color: var(--cyan); }
+.phase-badge.rest  { color: var(--red); }
+.phase-badge.pause { color: var(--green); }
 
-  .ring-progress.danger {
-    stroke: var(--accent2);
-    filter: drop-shadow(0 0 10px var(--accent2));
-    animation: pulsering 0.5s ease-in-out infinite alternate;
-  }
+.time-display {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(38px, 10vw, 80px);
+  line-height: 1;
+  color: var(--text);
+  letter-spacing: 2px;
+  transition: color .3s;
+}
+.time-display.red   { color: var(--red);   text-shadow: 0 0 18px rgba(255,71,87,0.6); }
+.time-display.green { color: var(--green); text-shadow: 0 0 18px rgba(46,213,115,0.5); }
+.time-display.alarm { color: var(--red);   text-shadow: 0 0 18px rgba(255,71,87,0.6); animation: pulsering .5s ease-in-out infinite alternate; }
 
-  @keyframes pulsering {
-    from { opacity: 1; }
-    to   { opacity: 0.45; }
-  }
+.time-sub {
+  font-size: clamp(7px, 1.2vw, 10px);
+  color: var(--muted);
+  letter-spacing: 3px;
+  margin-top: 2px;
+}
 
-  .ring-center {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
+/* Play / Stop */
+.btn-main, .btn-stop {
+  width: clamp(60px, 13vw, 90px);
+  height: clamp(60px, 13vw, 90px);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(22px, 5vw, 34px);
+  flex-shrink: 0;
+}
+.btn-main {
+  border: 3px solid var(--cyan);
+  background: transparent; color: var(--cyan);
+  box-shadow: 0 0 20px rgba(0,229,255,0.2), inset 0 0 16px rgba(0,229,255,0.06);
+}
+.btn-main:active { transform: scale(0.92); }
+.btn-main.running { border-color: var(--red); color: var(--red); box-shadow: 0 0 20px rgba(255,71,87,0.22); }
+.btn-stop { border: 3px solid var(--muted); background: transparent; color: var(--muted); }
+.btn-stop:active { transform: scale(0.92); }
+.btn-stop:hover  { border-color: var(--yellow); color: var(--yellow); }
 
-  .time-display {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(40px, 10vw, 86px);
-    line-height: 1;
-    color: var(--text);
-    letter-spacing: 2px;
-    transition: color .3s;
-  }
+/* ════════════════════════════════
+   MODE INDICATOR (interval)
+════════════════════════════════ */
+.mode-indicator {
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+}
+.mode-indicator.visible { display: flex; }
+.phase-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border);
+  transition: background .3s, box-shadow .3s;
+}
+.phase-dot.work  { background: var(--cyan);  box-shadow: 0 0 6px var(--cyan); }
+.phase-dot.rest  { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+.phase-dot.pause { background: var(--green); box-shadow: 0 0 6px var(--green); }
 
-  .time-display.danger { color: var(--accent2); text-shadow: 0 0 18px rgba(255,71,87,0.6); }
+/* ════════════════════════════════
+   PRESET GRID  (11 buttons: 9 fixed + 2 custom)
+════════════════════════════════ */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+}
 
-  .time-sub {
-    font-size: clamp(8px, 1.2vw, 11px);
-    color: var(--muted);
-    letter-spacing: 3px;
-    margin-top: 3px;
-  }
+.btn-preset {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(14px, 3.2vw, 22px);
+  letter-spacing: 1px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .18s;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 1px;
+  position: relative; overflow: hidden;
+}
+.btn-preset:active { transform: scale(0.95); }
 
-  /* ─── BUTTONS ─── */
-  .btn-main, .btn-stop {
-    width: clamp(64px, 13vw, 96px);
-    height: clamp(64px, 13vw, 96px);
-    border-radius: 50%;
-    cursor: pointer;
-    transition: all .2s;
-    display: flex; align-items: center; justify-content: center;
-    font-size: clamp(24px, 5vw, 36px);
-    flex-shrink: 0;
-  }
+/* colour variants */
+.btn-preset.work  { border-color: var(--border); }
+.btn-preset.rest  { border-color: var(--border); }
 
-  .btn-main {
-    border: 3px solid var(--accent);
-    background: transparent;
-    color: var(--accent);
-    box-shadow: 0 0 24px rgba(0,229,255,0.2), inset 0 0 20px rgba(0,229,255,0.07);
-  }
-  .btn-main:hover { background: rgba(0,229,255,0.1); box-shadow: 0 0 36px rgba(0,229,255,0.4); }
-  .btn-main:active { transform: scale(0.92); }
-  .btn-main.running { border-color: var(--accent2); color: var(--accent2); box-shadow: 0 0 24px rgba(255,71,87,0.25); }
-  .btn-main.running:hover { background: rgba(255,71,87,0.1); }
+.btn-preset.sel-work  { border-color: var(--cyan);  background: rgba(0,229,255,0.1);  color: var(--cyan); }
+.btn-preset.sel-rest  { border-color: var(--red);   background: rgba(255,71,87,0.1);  color: var(--red); }
+.btn-preset.sel-pause { border-color: var(--green); background: rgba(46,213,115,0.1); color: var(--green); }
 
-  .btn-stop {
-    border: 3px solid var(--muted);
-    background: transparent;
-    color: var(--muted);
-  }
-  .btn-stop:hover { border-color: var(--accent3); color: var(--accent3); box-shadow: 0 0 24px rgba(255,211,42,0.2); }
+/* custom button sub-label */
+.btn-preset .custom-label {
+  font-size: clamp(8px, 1.5vw, 10px);
+  color: var(--muted);
+  letter-spacing: 1px;
+  line-height: 1;
+}
 
-  /* ─── PRESET GRID ─── */
-  .preset-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    flex: 1;
-    min-height: 0;
-  }
+/* ════════════════════════════════
+   CUSTOM TIME MODAL
+════════════════════════════════ */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 28px;
+  display: flex; flex-direction: column; gap: 16px;
+  min-width: 260px;
+}
+.modal h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px; letter-spacing: 3px;
+  color: var(--cyan); text-align: center;
+}
+.modal-row {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.modal-input {
+  width: 64px; height: 52px;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 32px;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.modal-input::-webkit-outer-spin-button,
+.modal-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.modal-input:focus { border-color: var(--cyan); }
+.modal-sep { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--muted); }
+.modal-btns { display: flex; gap: 10px; }
+.modal-btns button {
+  flex: 1; padding: 10px;
+  border-radius: 8px; cursor: pointer;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px; letter-spacing: 2px;
+  border: none; transition: all .2s;
+}
+.btn-confirm { background: var(--cyan); color: var(--bg); }
+.btn-cancel  { background: var(--border); color: var(--muted); }
 
-  .btn-preset {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: clamp(16px, 3.5vw, 26px);
-    letter-spacing: 2px;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all .18s;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .btn-preset::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--accent);
-    opacity: 0;
-    transition: opacity .18s;
-  }
-
-  .btn-preset:hover::before { opacity: 0.08; }
-  .btn-preset:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-preset.active {
-    border-color: var(--accent);
-    background: rgba(0,229,255,0.1);
-    color: var(--accent);
-    box-shadow: 0 0 12px rgba(0,229,255,0.15);
-  }
-  .btn-preset:active { transform: scale(0.96); }
-
-  /* ─── STATUS ─── */
-  footer {
-    flex-shrink: 0;
-    display: flex;
-    justify-content: center;
-    padding: 0 4px 2px;
-  }
-
-  .status-pill {
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: var(--muted);
-    text-transform: uppercase;
-    padding: 4px 14px;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    transition: all .3s;
-  }
-  .status-pill.running { color: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px rgba(0,229,255,0.2); }
-  .status-pill.danger  { color: var(--accent2); border-color: var(--accent2); animation: blink .5s step-end infinite; }
-  .status-pill.done    { color: var(--accent3); border-color: var(--accent3); }
-
-  @keyframes blink { 50% { opacity: 0; } }
+/* ════════════════════════════════
+   FOOTER STATUS
+════════════════════════════════ */
+footer {
+  flex-shrink: 0;
+  display: flex; justify-content: center;
+  padding: 0 4px 1px;
+}
+.status-pill {
+  font-size: 9px; letter-spacing: 3px;
+  color: var(--muted); text-transform: uppercase;
+  padding: 3px 12px;
+  border: 1px solid var(--border); border-radius: 20px;
+  transition: all .3s;
+}
+.status-pill.running { color: var(--cyan);  border-color: var(--cyan);  box-shadow: 0 0 8px rgba(0,229,255,0.2); }
+.status-pill.resting { color: var(--red);   border-color: var(--red);   box-shadow: 0 0 8px rgba(255,71,87,0.2); }
+.status-pill.pausing { color: var(--green); border-color: var(--green); box-shadow: 0 0 8px rgba(46,213,115,0.2); }
+.status-pill.danger  { color: var(--red);   border-color: var(--red);   animation: blink .5s step-end infinite; }
+.status-pill.done    { color: var(--yellow);border-color: var(--yellow);}
+@keyframes blink { 50% { opacity:0; } }
 </style>
 </head>
 <body>
 
+<!-- ══ HEADER ══ -->
 <header>
   <div class="logo">CHRONO</div>
+
+  <!-- Mode toggle -->
+  <button class="btn-mode" id="btnMode" onclick="toggleMode()" title="Mode intervalles">
+    ⏳<span class="strike"></span>
+  </button>
+
+  <!-- Sets target -->
+  <div class="set-target-wrap">
+    <label>SETS</label>
+    <input class="input-sets" id="inputTarget" type="number" min="1" max="9" value="3">
+  </div>
+
+  <!-- Sets counter -->
   <div class="set-block">
-    <span class="set-label">Sets</span>
+    <span class="set-label">Fait</span>
     <span class="set-value" id="setVal">0</span>
+    <span class="set-target" id="setTargetDisp">/3</span>
     <button class="btn-reset" onclick="resetSets()">RAZ</button>
   </div>
 </header>
 
+<!-- ══ RING ══ -->
 <div class="ring-section">
   <button class="btn-stop" onclick="stopTimer()">■</button>
+
   <div class="ring-wrap">
     <svg class="ring-svg" viewBox="0 0 120 120">
       <circle class="ring-track" cx="60" cy="60" r="52"/>
       <circle class="ring-progress" id="ringProgress" cx="60" cy="60" r="52"/>
     </svg>
     <div class="ring-center">
+      <div class="phase-badge" id="phaseBadge"></div>
       <div class="time-display" id="timeDisplay">00:00</div>
-      <div class="time-sub" id="timeSub">PRÊT</div>
+      <div class="time-sub"    id="timeSub">PRÊT</div>
     </div>
   </div>
+
   <button class="btn-main" id="btnPlay" onclick="togglePlay()">▶</button>
 </div>
 
-<div class="preset-grid">
-  <button class="btn-preset" onclick="setPreset(15)"  data-sec="15">15s</button>
-  <button class="btn-preset" onclick="setPreset(20)"  data-sec="20">20s</button>
-  <button class="btn-preset" onclick="setPreset(30)"  data-sec="30">30s</button>
-  <button class="btn-preset" onclick="setPreset(45)"  data-sec="45">45s</button>
-  <button class="btn-preset" onclick="setPreset(60)"  data-sec="60">1min</button>
-  <button class="btn-preset" onclick="setPreset(75)"  data-sec="75">1m15</button>
-  <button class="btn-preset" onclick="setPreset(90)"  data-sec="90">1m30</button>
-  <button class="btn-preset" onclick="setPreset(120)" data-sec="120">2min</button>
-  <button class="btn-preset" onclick="setPreset(180)" data-sec="180">3min</button>
+<!-- ══ MODE INDICATOR ══ -->
+<div class="mode-indicator" id="modeIndicator">
+  <div class="phase-dot" id="dot0"></div>
+  <span>TRAVAIL</span>
+  <div class="phase-dot" id="dot1"></div>
+  <span>REPOS</span>
+  <div class="phase-dot" id="dot2"></div>
+  <span>PAUSE</span>
 </div>
 
+<!-- ══ PRESET GRID ══ -->
+<div class="preset-grid" id="presetGrid">
+  <button class="btn-preset" data-sec="15"  onclick="selectTime(15,this)">15s</button>
+  <button class="btn-preset" data-sec="20"  onclick="selectTime(20,this)">20s</button>
+  <button class="btn-preset" data-sec="30"  onclick="selectTime(30,this)">30s</button>
+  <button class="btn-preset" data-sec="45"  onclick="selectTime(45,this)">45s</button>
+  <button class="btn-preset" data-sec="60"  onclick="selectTime(60,this)">1min</button>
+  <button class="btn-preset" data-sec="75"  onclick="selectTime(75,this)">1m15</button>
+  <button class="btn-preset" data-sec="90"  onclick="selectTime(90,this)">1m30</button>
+  <button class="btn-preset" data-sec="120" onclick="selectTime(120,this)">2min</button>
+  <button class="btn-preset" data-sec="180" onclick="selectTime(180,this)">3min</button>
+  <!-- Custom buttons -->
+  <button class="btn-preset custom" id="customBtn0" data-sec="0" onclick="openCustom(0)">
+    <span>✏️</span>
+    <span class="custom-label" id="customLabel0">LIBRE</span>
+  </button>
+  <button class="btn-preset custom" id="customBtn1" data-sec="0" onclick="openCustom(1)">
+    <span>✏️</span>
+    <span class="custom-label" id="customLabel1">LIBRE</span>
+  </button>
+</div>
+
+<!-- ══ STATUS ══ -->
 <footer>
   <div class="status-pill" id="statusPill">EN ATTENTE</div>
 </footer>
 
+<!-- ══ CUSTOM TIME MODAL ══ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">TEMPS LIBRE</h3>
+    <div class="modal-row">
+      <input class="modal-input" id="modalMin" type="number" min="0" max="59" value="0" placeholder="00">
+      <span class="modal-sep">:</span>
+      <input class="modal-input" id="modalSec" type="number" min="0" max="59" value="30" placeholder="00">
+    </div>
+    <div class="modal-row" style="font-size:10px;color:var(--muted);letter-spacing:2px;">MIN &nbsp;&nbsp;&nbsp; SEC</div>
+    <div class="modal-btns">
+      <button class="btn-cancel"  onclick="closeModal()">ANNULER</button>
+      <button class="btn-confirm" onclick="confirmCustom()">OK</button>
+    </div>
+  </div>
+</div>
+
 <script>
-  /* ─── Service Worker ─── */
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () =>
-      navigator.serviceWorker.register('./sw.js')
-        .then(r => console.log('SW registered', r.scope))
-        .catch(e => console.warn('SW failed', e))
-    );
+/* ─── Service Worker ─── */
+if ('serviceWorker' in navigator)
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+
+/* ─── Audio ─── */
+let actx;
+function getCtx() { if (!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); return actx; }
+function beep(freq, dur, vol=0.35) {
+  const ac=getCtx(), o=ac.createOscillator(), g=ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+dur);
+  o.start(); o.stop(ac.currentTime+dur);
+}
+function playBip()  { beep(880, 0.18); }
+function playDong() { [440,554,659].forEach((f,i)=>setTimeout(()=>beep(f,0.8,0.45),i*220)); }
+function playRest() { [330,440].forEach((f,i)=>setTimeout(()=>beep(f,0.5,0.4),i*180)); }
+function playPause(){ [523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,1.0,0.45),i*260)); }
+
+/* ─── Constants ─── */
+const RADIUS=52, CIRCUM=2*Math.PI*RADIUS;
+
+/* ─── State ─── */
+let intervalMode = false;  // false=simple, true=work/rest
+
+// Simple mode
+let simpleDuration=0, simpleRemaining=0;
+
+// Interval mode
+// phase: 'work' | 'rest' | 'pause'
+let workTime=0, restTime=0, pauseTime=0;
+let ivPhase='work';          // current phase
+let ivSelectStep=0;          // 0=pick work, 1=pick rest, 2=pick pause (after all sets), -1=running
+let ivDuration=0, ivRemaining=0;
+
+// Common
+let running=false, ticker=null, sets=0, bipPlayed=new Set();
+let customSec=[0,0];   // custom button values
+let editingCustom=-1;  // which custom button is being edited
+
+/* ─── Helpers ─── */
+const $=id=>document.getElementById(id);
+const ring=$('ringProgress');
+ring.style.strokeDasharray=CIRCUM;
+ring.style.strokeDashoffset=CIRCUM;
+
+function updateRing(frac,color='cyan'){
+  ring.style.strokeDashoffset=CIRCUM*(1-Math.max(0,Math.min(1,frac)));
+  ring.className='ring-progress '+color;
+}
+function fmt(s){
+  s=Math.max(0,Math.round(s));
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+function targetSets(){ return Math.max(1,Math.min(9,parseInt($('inputTarget').value)||3)); }
+
+/* ─── Sets target display sync ─── */
+$('inputTarget').addEventListener('input',()=>{
+  $('setTargetDisp').textContent='/'+$('inputTarget').value;
+});
+
+/* ════════════════════════════════
+   MODE TOGGLE
+════════════════════════════════ */
+function toggleMode(){
+  stopTimer();
+  intervalMode=!intervalMode;
+  const btn=$('btnMode');
+  btn.classList.toggle('interval',intervalMode);
+  $('modeIndicator').classList.toggle('visible',intervalMode);
+
+  if(intervalMode){
+    // Reset interval selection
+    workTime=0; restTime=0; pauseTime=0;
+    ivSelectStep=0;
+    clearPresetHighlights();
+    highlightSelectStep();
+  } else {
+    clearPresetHighlights();
+    if(simpleDuration>0) highlightSimple(simpleDuration);
+  }
+  renderRing();
+  renderUI();
+}
+
+/* ════════════════════════════════
+   PRESET SELECTION
+════════════════════════════════ */
+function clearPresetHighlights(){
+  document.querySelectorAll('.btn-preset').forEach(b=>{
+    b.classList.remove('sel-work','sel-rest','sel-pause');
+  });
+}
+
+function highlightSimple(sec){
+  document.querySelectorAll('.btn-preset').forEach(b=>{
+    const s=parseInt(b.dataset.sec);
+    b.classList.toggle('sel-work', s===sec);
+  });
+}
+
+function highlightSelectStep(){
+  // In interval mode show which step we're on via status
+  renderUI();
+}
+
+function selectTime(sec,btn){
+  getCtx();
+  if(!intervalMode){
+    // Simple mode: just set duration
+    if(running) stopTimer();
+    simpleDuration=sec; simpleRemaining=sec;
+    clearPresetHighlights();
+    btn.classList.add('sel-work');
+    updateRing(1,'cyan');
+    renderUI();
+    return;
   }
 
-  /* ─── Audio ─── */
-  let ctx;
-  function getCtx() {
-    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-    return ctx;
-  }
-  function playBip() {
-    const ac = getCtx();
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.connect(g); g.connect(ac.destination);
-    o.frequency.setValueAtTime(880, ac.currentTime);
-    g.gain.setValueAtTime(0.35, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.18);
-    o.start(); o.stop(ac.currentTime + 0.18);
-  }
-  function playDong() {
-    const ac = getCtx();
-    [440, 554, 659].forEach((freq, i) => {
-      const o = ac.createOscillator(), g = ac.createGain();
-      o.connect(g); g.connect(ac.destination);
-      o.type = 'sine';
-      const t = ac.currentTime + i * 0.22;
-      o.frequency.setValueAtTime(freq, t);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
-      o.start(t); o.stop(t + 1);
+  // Interval mode: step through work → rest → (pause after last)
+  if(running) return; // don't change mid-run
+
+  if(ivSelectStep===0){
+    workTime=sec;
+    clearPresetHighlights();
+    btn.classList.add('sel-work');
+    ivSelectStep=1;
+  } else if(ivSelectStep===1){
+    restTime=sec;
+    clearPresetHighlights();
+    // keep work highlighted
+    document.querySelectorAll('.btn-preset').forEach(b=>{
+      if(parseInt(b.dataset.sec)===workTime) b.classList.add('sel-work');
     });
+    btn.classList.add('sel-rest');
+    ivSelectStep=2; // now ask for pause
+  } else if(ivSelectStep===2){
+    pauseTime=sec;
+    // highlight pause in green
+    document.querySelectorAll('.btn-preset').forEach(b=>{
+      const s=parseInt(b.dataset.sec);
+      if(s===workTime) b.classList.add('sel-work');
+      else if(s===restTime) b.classList.add('sel-rest');
+    });
+    btn.classList.add('sel-pause');
+    ivSelectStep=3; // ready to run
   }
+  renderUI();
+}
 
-  /* ─── State ─── */
-  let duration = 0, remaining = 0, running = false, interval = null, sets = 0;
-  let bipPlayed = new Set();
+/* ════════════════════════════════
+   CUSTOM BUTTONS
+════════════════════════════════ */
+function openCustom(idx){
+  editingCustom=idx;
+  const sec=customSec[idx];
+  $('modalMin').value=Math.floor(sec/60);
+  $('modalSec').value=sec%60;
+  $('modalTitle').textContent='TEMPS LIBRE '+(idx+1);
+  $('modalOverlay').classList.add('open');
+}
+function closeModal(){ $('modalOverlay').classList.remove('open'); }
+function confirmCustom(){
+  const m=parseInt($('modalMin').value)||0;
+  const s=parseInt($('modalSec').value)||0;
+  const total=m*60+s;
+  if(total<1){ closeModal(); return; }
+  customSec[editingCustom]=total;
+  const lbl=total>=60?`${Math.floor(total/60)}m${total%60>0?String(total%60).padStart(2,'0')+'s':''}`:total+'s';
+  $(`customLabel${editingCustom}`).textContent=lbl;
+  $(`customBtn${editingCustom}`).dataset.sec=total;
+  // Remove pencil icon, show time
+  $(`customBtn${editingCustom}`).querySelector('span').textContent='';
+  closeModal();
+  // treat as a normal select
+  selectTime(total, $(`customBtn${editingCustom}`));
+}
 
-  /* ─── Ring ─── */
-  const ring = document.getElementById('ringProgress');
-  const RADIUS = 52, CIRCUM = 2 * Math.PI * RADIUS;
-  ring.style.strokeDasharray = CIRCUM;
-  ring.style.strokeDashoffset = CIRCUM;
-  function updateRing(frac) { ring.style.strokeDashoffset = CIRCUM * (1 - frac); }
-
-  function fmt(s) {
-    const m = Math.floor(s / 60), sec = Math.floor(s % 60);
-    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-  }
-
-  function render() {
-    const disp = document.getElementById('timeDisplay');
-    const sub  = document.getElementById('timeSub');
-    const pill = document.getElementById('statusPill');
-    const btn  = document.getElementById('btnPlay');
-    const danger = remaining <= 5 && remaining > 0 && running;
-
-    disp.textContent = fmt(remaining);
-    disp.classList.toggle('danger', danger);
-    ring.classList.toggle('danger', danger);
-
-    if (!running && remaining === duration && duration > 0) {
-      sub.textContent = fmt(duration);
-      pill.textContent = 'EN ATTENTE'; pill.className = 'status-pill';
-      btn.textContent = '▶'; btn.classList.remove('running');
-    } else if (running) {
-      sub.textContent = danger ? 'ALERTE !' : 'EN COURS';
-      pill.textContent = danger ? 'FIN PROCHE' : 'EN COURS';
-      pill.className = 'status-pill ' + (danger ? 'danger' : 'running');
-      btn.textContent = '⏸'; btn.classList.add('running');
-    } else if (remaining === 0 && duration > 0) {
-      sub.textContent = 'TERMINÉ';
-      pill.textContent = 'TERMINÉ'; pill.className = 'status-pill done';
-      btn.textContent = '▶'; btn.classList.remove('running');
+/* ════════════════════════════════
+   TIMER ENGINE
+════════════════════════════════ */
+function togglePlay(){
+  getCtx();
+  if(!intervalMode){
+    if(simpleDuration===0) return;
+    if(running){
+      pause();
     } else {
-      sub.textContent = 'PRÊT';
-      pill.textContent = 'EN ATTENTE'; pill.className = 'status-pill';
-      btn.textContent = '▶'; btn.classList.remove('running');
+      if(simpleRemaining===0){ simpleRemaining=simpleDuration; bipPlayed.clear(); }
+      sets++; // increment on launch
+      $('setVal').textContent=sets;
+      startSimple();
+    }
+  } else {
+    // interval mode
+    if(running){ pause(); return; }
+    if(ivSelectStep<3 && ivSelectStep>0) return; // not configured yet for rest/pause
+    if(workTime===0) return;
+    // Start or resume
+    if(ivSelectStep===3){
+      // Fresh start: begin work phase
+      ivPhase='work';
+      ivDuration=workTime; ivRemaining=workTime;
+      ivSelectStep=-1; // running
+      sets++; $('setVal').textContent=sets;
+      bipPlayed.clear();
+      startInterval();
+    } else if(ivSelectStep===-1){
+      // Was paused, resume
+      startInterval();
     }
   }
+}
 
-  function tick() {
-    if (remaining <= 0) {
-      clearInterval(interval); interval = null; running = false; remaining = 0;
-      updateRing(0); sets++;
-      document.getElementById('setVal').textContent = sets;
-      render(); playDong(); return;
-    }
-    if (remaining <= 5 && !bipPlayed.has(remaining)) { bipPlayed.add(remaining); playBip(); }
-    remaining -= 1;
-    updateRing(remaining / duration);
-    render();
+function pause(){
+  clearInterval(ticker); ticker=null; running=false;
+  $('btnPlay').textContent='▶';
+  $('btnPlay').classList.remove('running');
+  renderUI();
+}
+
+function startSimple(){
+  running=true;
+  $('btnPlay').textContent='⏸';
+  $('btnPlay').classList.add('running');
+  renderUI();
+  ticker=setInterval(tickSimple,1000);
+}
+
+function tickSimple(){
+  if(simpleRemaining<=0){
+    clearInterval(ticker); ticker=null; running=false;
+    $('btnPlay').textContent='▶'; $('btnPlay').classList.remove('running');
+    updateRing(0,'cyan');
+    playDong();
+    renderUI(); return;
   }
+  if(simpleRemaining<=5 && !bipPlayed.has(simpleRemaining)){
+    bipPlayed.add(simpleRemaining); playBip();
+  }
+  simpleRemaining--;
+  updateRing(simpleRemaining/simpleDuration,'cyan');
+  renderUI();
+}
 
-  function togglePlay() {
-    if (duration === 0) return;
-    getCtx();
-    if (running) {
-      clearInterval(interval); interval = null; running = false; render();
+function startInterval(){
+  running=true;
+  $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running');
+  // ring color by phase
+  const col = ivPhase==='work'?'cyan': ivPhase==='rest'?'red':'green';
+  updateRing(ivRemaining/ivDuration, col);
+  renderUI();
+  ticker=setInterval(tickInterval,1000);
+}
+
+function tickInterval(){
+  if(ivRemaining<=0){
+    clearInterval(ticker); ticker=null; running=false;
+    $('btnPlay').textContent='▶'; $('btnPlay').classList.remove('running');
+    nextPhase();
+    return;
+  }
+  if(ivRemaining<=5 && !bipPlayed.has(ivRemaining)){
+    bipPlayed.add(ivRemaining); playBip();
+  }
+  ivRemaining--;
+  const col = ivPhase==='work'?'cyan': ivPhase==='rest'?'red':'green';
+  updateRing(ivRemaining/ivDuration, col);
+  renderUI();
+}
+
+function nextPhase(){
+  const totalSets=targetSets();
+  bipPlayed.clear();
+
+  if(ivPhase==='work'){
+    // Work done → rest (or pause if last set)
+    playRest();
+    if(sets>=totalSets){
+      // Last set: go to pause
+      ivPhase='pause';
+      ivDuration=pauseTime; ivRemaining=pauseTime;
+      updateRing(1,'green');
+      renderUI();
+      // Auto-start pause
+      if(pauseTime>0){ running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running'); ticker=setInterval(tickInterval,1000); }
     } else {
-      if (remaining === 0) { remaining = duration; bipPlayed.clear(); }
-      running = true; render();
-      interval = setInterval(tick, 1000);
+      ivPhase='rest';
+      ivDuration=restTime; ivRemaining=restTime;
+      updateRing(1,'red');
+      renderUI();
+      if(restTime>0){ running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running'); ticker=setInterval(tickInterval,1000); }
     }
+  } else if(ivPhase==='rest'){
+    // Rest done → next work
+    playDong();
+    ivPhase='work';
+    ivDuration=workTime; ivRemaining=workTime;
+    sets++; $('setVal').textContent=sets;
+    updateRing(1,'cyan');
+    renderUI();
+    if(workTime>0){ running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running'); ticker=setInterval(tickInterval,1000); }
+  } else if(ivPhase==='pause'){
+    // All done!
+    playPause();
+    ivSelectStep=3; // reset to configurable
+    updateRing(0,'green');
+    renderUI();
+  }
+}
+
+function stopTimer(){
+  clearInterval(ticker); ticker=null; running=false;
+  $('btnPlay').textContent='▶'; $('btnPlay').classList.remove('running');
+  bipPlayed.clear();
+  if(!intervalMode){
+    simpleRemaining=simpleDuration;
+    updateRing(simpleDuration>0?1:0,'cyan');
+  } else {
+    ivPhase='work';
+    ivRemaining=workTime; ivDuration=workTime;
+    ivSelectStep= (workTime>0&&restTime>0&&pauseTime>0)?3:0;
+    updateRing(workTime>0?1:0,'cyan');
+  }
+  renderUI();
+}
+
+function resetSets(){ sets=0; $('setVal').textContent=0; }
+
+/* ════════════════════════════════
+   RENDER
+════════════════════════════════ */
+function renderRing(){
+  if(!intervalMode){
+    updateRing(simpleDuration>0? simpleRemaining/simpleDuration:0,'cyan');
+  }
+}
+
+function renderUI(){
+  const pill=$('statusPill');
+  const disp=$('timeDisplay');
+  const sub=$('timeSub');
+  const badge=$('phaseBadge');
+
+  if(!intervalMode){
+    // ── Simple mode ──
+    const danger=simpleRemaining<=5&&simpleRemaining>0&&running;
+    disp.textContent=fmt(simpleRemaining);
+    disp.className='time-display'+(danger?' alarm':'');
+    badge.textContent=''; badge.className='phase-badge';
+    sub.textContent=running?(danger?'ALERTE !':'EN COURS'):(simpleRemaining===0&&simpleDuration>0)?'TERMINÉ':'PRÊT';
+
+    if(!running&&simpleRemaining===simpleDuration&&simpleDuration>0){
+      pill.textContent='EN ATTENTE'; pill.className='status-pill';
+    } else if(running){
+      pill.textContent=danger?'FIN PROCHE':'EN COURS';
+      pill.className='status-pill '+(danger?'danger':'running');
+    } else if(simpleRemaining===0&&simpleDuration>0){
+      pill.textContent='TERMINÉ'; pill.className='status-pill done';
+    } else {
+      pill.textContent='EN ATTENTE'; pill.className='status-pill';
+    }
+    // dots hidden
+    ['dot0','dot1','dot2'].forEach(id=>$(id).className='phase-dot');
+
+  } else {
+    // ── Interval mode ──
+    if(ivSelectStep===0){
+      disp.textContent='00:00'; disp.className='time-display';
+      badge.textContent='TRAVAIL'; badge.className='phase-badge work';
+      sub.textContent='CHOISIR TEMPS TRAVAIL';
+      pill.textContent='↑ SÉLECT. TRAVAIL'; pill.className='status-pill running';
+    } else if(ivSelectStep===1){
+      disp.textContent=fmt(workTime); disp.className='time-display';
+      badge.textContent='REPOS'; badge.className='phase-badge rest';
+      sub.textContent='CHOISIR TEMPS REPOS';
+      pill.textContent='↑ SÉLECT. REPOS'; pill.className='status-pill resting';
+    } else if(ivSelectStep===2){
+      disp.textContent=fmt(restTime); disp.className='time-display red';
+      badge.textContent='PAUSE'; badge.className='phase-badge pause';
+      sub.textContent='CHOISIR TEMPS PAUSE';
+      pill.textContent='↑ SÉLECT. PAUSE'; pill.className='status-pill pausing';
+    } else {
+      // Running or ready
+      const rem = ivRemaining;
+      const danger=rem<=5&&rem>0&&running;
+      const col = ivPhase==='work'?'':ivPhase==='rest'?' red':' green';
+      disp.textContent=fmt(rem);
+      disp.className='time-display'+(danger?' alarm':col);
+
+      const phaseLabel={'work':'TRAVAIL','rest':'REPOS','pause':'PAUSE'}[ivPhase];
+      badge.textContent=phaseLabel;
+      badge.className='phase-badge '+ivPhase;
+
+      if(running){
+        sub.textContent=danger?'ALERTE !':phaseLabel+' EN COURS';
+        const pc=ivPhase==='work'?'running':ivPhase==='rest'?'resting':'pausing';
+        pill.textContent=danger?'FIN PROCHE':phaseLabel;
+        pill.className='status-pill '+(danger?'danger':pc);
+      } else {
+        sub.textContent='PRÊT';
+        pill.textContent='PRÊT'; pill.className='status-pill';
+      }
+    }
+
+    // Phase dots
+    $('dot0').className='phase-dot'+(ivPhase==='work'&&ivSelectStep===-1?' work':'');
+    $('dot1').className='phase-dot'+(ivPhase==='rest'&&ivSelectStep===-1?' rest':'');
+    $('dot2').className='phase-dot'+(ivPhase==='pause'&&ivSelectStep===-1?' pause':'');
   }
 
-  function stopTimer() {
-    clearInterval(interval); interval = null; running = false;
-    remaining = duration; bipPlayed.clear();
-    updateRing(1); render();
-  }
+  // Sets target display
+  $('setTargetDisp').textContent='/'+$('inputTarget').value;
+}
 
-  function setPreset(seconds) {
-    clearInterval(interval); interval = null; running = false;
-    duration = seconds; remaining = seconds; bipPlayed.clear();
-    updateRing(1);
-    document.querySelectorAll('.btn-preset').forEach(b =>
-      b.classList.toggle('active', parseInt(b.getAttribute('data-sec')) === seconds));
-    render();
-  }
-
-  function resetSets() { sets = 0; document.getElementById('setVal').textContent = 0; }
-
-  render();
+// Init
+updateRing(0,'cyan');
+renderUI();
 </script>
 </body>
 </html>
