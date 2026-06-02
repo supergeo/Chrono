@@ -801,24 +801,29 @@ function togglePlay(){
     startEngine(smRemaining/smDuration,'cyan');
     ticker=setInterval(tickSimple,1000);
   } else {
-    // MODE INTERVALLES : lance travail
-    if(ivSelectStep<3) return;
+    // MODE INTERVALLES
     if(ivSelectStep===3){
-      // Premier lancement
+      // Premier lancement : travail
       ivPhase='work'; ivDuration=workTimeIV; ivRemaining=workTimeIV;
       ivSelectStep=-1;
       decrementSets();
       bipPlayed.clear();
       startEngine(1,'green');
       ticker=setInterval(tickInterval,1000);
+    } else if(ivSelectStep===-2){
+      // Travail prêt, attend l'utilisateur (après fin d'un repos)
+      ivSelectStep=-1;
+      decrementSets();
+      bipPlayed.clear();
+      startEngine(ivRemaining/ivDuration,'green');
+      ticker=setInterval(tickInterval,1000);
     } else if(ivSelectStep===-1){
-      // Reprise après pause manuelle
-      // Si on repart sur un travail tout frais (remaining=duration), décrémenter
-      if(ivPhase==='work' && ivRemaining===ivDuration) decrementSets();
+      // Reprise après pause manuelle mid-phase
       const col = ivPhase==='work'?'green': ivPhase==='rest'?'cyan':'red';
       startEngine(ivRemaining/ivDuration, col);
       ticker=setInterval(tickInterval,1000);
     }
+    // sinon pas encore configuré → rien
   }
 }
 
@@ -924,6 +929,7 @@ function nextPhaseInterval(){
       // Prochain travail — attendre l'utilisateur
       ivPhase='work';
       ivDuration=workTimeIV; ivRemaining=workTimeIV;
+      ivSelectStep=-2;  // travail prêt, attend ▶
       bipPlayed.clear();
       updateRing(1,'green');
       renderUI();
@@ -950,7 +956,8 @@ function stopTimer(){
     smDuration=restTimeSM; smRemaining=restTimeSM;
     updateRing(restTimeSM>0?1:0,'cyan');
   } else {
-    ivPhase='work'; ivSelectStep= (workTimeIV>0&&restTimeIV>0&&pauseTimeIV>0)?3:0;
+    ivPhase='work';
+    ivSelectStep= (workTimeIV>0&&restTimeIV>0&&pauseTimeIV>0)?3:0;
     ivDuration=workTimeIV; ivRemaining=workTimeIV;
     updateRing(workTimeIV>0?1:0,'green');
   }
@@ -1022,6 +1029,7 @@ function renderUI(){
       sub.textContent='CHOISIR TEMPS PAUSE';
       pill.textContent='↑ SÉLECT. PAUSE'; pill.className='status-pill resting';
     } else {
+      // Running, paused, ou travail en attente (-2)
       const rem=ivRemaining;
       const danger=rem<=3&&rem>0&&running;
       const colClass = ivPhase==='work'?' green': ivPhase==='rest'?'':' red';
@@ -1035,12 +1043,15 @@ function renderUI(){
         const pc=ivPhase==='work'?'pausing': ivPhase==='rest'?'running':'resting';
         pill.textContent=danger?'FIN PROCHE':labels[ivPhase];
         pill.className='status-pill '+(danger?'danger':pc);
+      } else if(ivSelectStep===-2){
+        sub.textContent='APPUYER SUR ▶';
+        pill.textContent='PRÊT TRAVAIL'; pill.className='status-pill pausing';
       } else {
         sub.textContent='PRÊT';
         pill.textContent='PRÊT'; pill.className='status-pill';
       }
     }
-    $('dot0').className='phase-dot'+(ivPhase==='work'&&ivSelectStep===-1?' pause':'');
+    $('dot0').className='phase-dot'+(ivPhase==='work'&&(ivSelectStep===-1||ivSelectStep===-2)?' pause':'');
     $('dot1').className='phase-dot'+(ivPhase==='rest'&&ivSelectStep===-1?' work':'');
     $('dot2').className='phase-dot'+(ivPhase==='pause'&&ivSelectStep===-1?' rest':'');
   }
