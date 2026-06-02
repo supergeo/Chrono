@@ -806,14 +806,12 @@ function nextPhaseSimple(){
         ticker=setInterval(tickSimple,1000);
       }
     } else {
-      // Encore des sets → prochain repos
+      // Encore des sets → préparer le prochain repos, attendre l'utilisateur
       smPhase='rest';
       smDuration=restTimeSM; smRemaining=restTimeSM;
       decrementSets();
       updateRing(1,'cyan');
       renderUI();
-      running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running');
-      ticker=setInterval(tickSimple,1000);
     }
   } else if(smPhase==='pause'){
     // Pause terminée → reset et attente
@@ -867,15 +865,13 @@ function nextPhaseInterval(){
         ticker=setInterval(tickInterval,1000);
       }
     } else {
-      // Prochain travail
+      // Prochain travail — attendre l'utilisateur
       ivPhase='work';
       ivDuration=workTimeIV; ivRemaining=workTimeIV;
       decrementSets();
       bipPlayed.clear();
       updateRing(1,'green');
       renderUI();
-      running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running');
-      ticker=setInterval(tickInterval,1000);
     }
   } else if(ivPhase==='pause'){
     // Pause terminée → reset
