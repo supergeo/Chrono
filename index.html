@@ -358,9 +358,10 @@ header {
 .btn-preset.work  { border-color: var(--border); }
 .btn-preset.rest  { border-color: var(--border); }
 
-.btn-preset.sel-work  { border-color: var(--cyan);  background: rgba(0,229,255,0.1);  color: var(--cyan); }
-.btn-preset.sel-rest  { border-color: var(--red);   background: rgba(255,71,87,0.1);  color: var(--red); }
-.btn-preset.sel-pause { border-color: var(--green); background: rgba(46,213,115,0.1); color: var(--green); }
+.btn-preset.sel-work   { border-color: var(--cyan);   background: rgba(0,229,255,0.1);   color: var(--cyan); }
+.btn-preset.sel-yellow { border-color: var(--yellow); background: rgba(255,211,42,0.1);  color: var(--yellow); }
+.btn-preset.sel-rest   { border-color: var(--red);    background: rgba(255,71,87,0.1);   color: var(--red); }
+.btn-preset.sel-pause  { border-color: var(--green);  background: rgba(46,213,115,0.1);  color: var(--green); }
 
 /* long-press hint on custom buttons */
 .btn-preset.custom .hint {
@@ -674,7 +675,7 @@ function toggleMode(){
 ════════════════════════════════ */
 function clearPresetHighlights(){
   document.querySelectorAll('.btn-preset').forEach(b=>
-    b.classList.remove('sel-work','sel-rest','sel-pause'));
+    b.classList.remove('sel-work','sel-yellow','sel-rest','sel-pause'));
 }
 
 function selectTime(sec, btn){
@@ -687,12 +688,12 @@ function selectTime(sec, btn){
     if(smSelectStep===0){
       restTimeSM=sec;
       clearPresetHighlights();
-      btn.classList.add('sel-work');   // cyan = repos
+      btn.classList.add('sel-yellow');   // jaune = repos
       smSelectStep=1;
     } else if(smSelectStep===1){
       pauseTimeSM=sec;
       document.querySelectorAll('.btn-preset').forEach(b=>{
-        if(parseInt(b.dataset.sec)===restTimeSM) b.classList.add('sel-work');
+        if(parseInt(b.dataset.sec)===restTimeSM) b.classList.add('sel-yellow');
       });
       btn.classList.add('sel-rest');   // rouge = pause
       smSelectStep=2;
@@ -700,7 +701,7 @@ function selectTime(sec, btn){
       // Re-sélection : recommencer la config
       restTimeSM=sec;
       clearPresetHighlights();
-      btn.classList.add('sel-work');
+      btn.classList.add('sel-yellow');
       smSelectStep=1;
     }
     smDuration=restTimeSM; smRemaining=restTimeSM;
@@ -722,14 +723,14 @@ function selectTime(sec, btn){
       document.querySelectorAll('.btn-preset').forEach(b=>{
         if(parseInt(b.dataset.sec)===workTimeIV) b.classList.add('sel-pause');
       });
-      btn.classList.add('sel-work');   // cyan = repos
+      btn.classList.add('sel-yellow');   // jaune = repos
       ivSelectStep=2;
     } else if(ivSelectStep===2){
       pauseTimeIV=sec;
       document.querySelectorAll('.btn-preset').forEach(b=>{
         const s=parseInt(b.dataset.sec);
         if(s===workTimeIV) b.classList.add('sel-pause');
-        else if(s===restTimeIV) b.classList.add('sel-work');
+        else if(s===restTimeIV) b.classList.add('sel-yellow');
       });
       btn.classList.add('sel-rest');   // rouge = pause
       ivSelectStep=3;
