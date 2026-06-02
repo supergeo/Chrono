@@ -290,8 +290,42 @@ header {
 .phase-dot.pause { background: var(--green); box-shadow: 0 0 6px var(--green); }
 
 /* ════════════════════════════════
-   PRESET GRID  (11 buttons: 9 fixed + 2 custom)
+   RÉSUMÉ DES TEMPS
 ════════════════════════════════ */
+.summary {
+  display: none;
+  flex-shrink: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 5px 10px;
+  gap: 0;
+}
+.summary.visible { display: flex; align-items: center; justify-content: space-around; }
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.summary-title {
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.summary-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(14px, 3.5vw, 20px);
+  letter-spacing: 1px;
+}
+.summary-val.cyan  { color: var(--cyan);  text-shadow: 0 0 8px rgba(0,229,255,0.4); }
+.summary-val.red   { color: var(--red);   text-shadow: 0 0 8px rgba(255,71,87,0.4); }
+.summary-val.green { color: var(--green); text-shadow: 0 0 8px rgba(46,213,115,0.4); }
+.summary-divider {
+  width: 1px; height: 28px;
+  background: var(--border);
+}
 .preset-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -464,6 +498,25 @@ footer {
   <span>REPOS</span>
   <div class="phase-dot" id="dot2"></div>
   <span>PAUSE</span>
+</div>
+
+<!-- ══ RÉSUMÉ ══ -->
+<div class="summary" id="summary">
+  <!-- Sablier barré : repos + pause -->
+  <div class="summary-item" id="sumWork" style="display:none">
+    <span class="summary-title">TRAVAIL</span>
+    <span class="summary-val green" id="sumWorkVal">--</span>
+  </div>
+  <div class="summary-divider" id="sumDiv0" style="display:none"></div>
+  <div class="summary-item">
+    <span class="summary-title">REPOS</span>
+    <span class="summary-val cyan" id="sumRestVal">--</span>
+  </div>
+  <div class="summary-divider"></div>
+  <div class="summary-item">
+    <span class="summary-title">PAUSE</span>
+    <span class="summary-val red" id="sumPauseVal">--</span>
+  </div>
 </div>
 
 <!-- ══ PRESET GRID ══ -->
@@ -741,15 +794,17 @@ function togglePlay(){
 
   if(!intervalMode){
     // MODE SIMPLE : lance repos
-    if(smSelectStep<2) return;          // pas encore configuré
+    if(smSelectStep<2) return;
     if(smRemaining===0){ smRemaining=smDuration; bipPlayed.clear(); }
-    decrementSets();
+    // Décrémenter uniquement au démarrage d'un nouveau repos (pas à la reprise)
+    if(smPhase==='rest' && smRemaining===smDuration) decrementSets();
     startEngine(smRemaining/smDuration,'cyan');
     ticker=setInterval(tickSimple,1000);
   } else {
     // MODE INTERVALLES : lance travail
     if(ivSelectStep<3) return;
     if(ivSelectStep===3){
+      // Premier lancement
       ivPhase='work'; ivDuration=workTimeIV; ivRemaining=workTimeIV;
       ivSelectStep=-1;
       decrementSets();
@@ -758,6 +813,8 @@ function togglePlay(){
       ticker=setInterval(tickInterval,1000);
     } else if(ivSelectStep===-1){
       // Reprise après pause manuelle
+      // Si on repart sur un travail tout frais (remaining=duration), décrémenter
+      if(ivPhase==='work' && ivRemaining===ivDuration) decrementSets();
       const col = ivPhase==='work'?'green': ivPhase==='rest'?'cyan':'red';
       startEngine(ivRemaining/ivDuration, col);
       ticker=setInterval(tickInterval,1000);
@@ -809,7 +866,6 @@ function nextPhaseSimple(){
       // Encore des sets → préparer le prochain repos, attendre l'utilisateur
       smPhase='rest';
       smDuration=restTimeSM; smRemaining=restTimeSM;
-      decrementSets();
       updateRing(1,'cyan');
       renderUI();
     }
@@ -868,7 +924,6 @@ function nextPhaseInterval(){
       // Prochain travail — attendre l'utilisateur
       ivPhase='work';
       ivDuration=workTimeIV; ivRemaining=workTimeIV;
-      decrementSets();
       bipPlayed.clear();
       updateRing(1,'green');
       renderUI();
@@ -991,6 +1046,23 @@ function renderUI(){
   }
 
   $('setTargetDisp').textContent='/'+$('inputTarget').value;
+
+  // ── Résumé des temps ──
+  const fmtS = s => s>0 ? fmt(s) : '--';
+  if(!intervalMode){
+    $('sumWork').style.display='none';
+    $('sumDiv0').style.display='none';
+    $('sumRestVal').textContent  = fmtS(restTimeSM);
+    $('sumPauseVal').textContent = fmtS(pauseTimeSM);
+    $('summary').classList.toggle('visible', smSelectStep>=1);
+  } else {
+    $('sumWork').style.display  = ivSelectStep>=1 ? 'flex':'none';
+    $('sumDiv0').style.display  = ivSelectStep>=1 ? 'block':'none';
+    $('sumWorkVal').textContent  = fmtS(workTimeIV);
+    $('sumRestVal').textContent  = fmtS(restTimeIV);
+    $('sumPauseVal').textContent = fmtS(pauseTimeIV);
+    $('summary').classList.toggle('visible', ivSelectStep>=1);
+  }
 }
 
 // Init
