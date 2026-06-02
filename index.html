@@ -221,9 +221,9 @@ header {
   color: var(--muted);
   transition: color .3s;
 }
-.phase-badge.work  { color: var(--cyan); }
-.phase-badge.rest  { color: var(--red); }
-.phase-badge.pause { color: var(--green); }
+.phase-badge.work  { color: var(--cyan); }   /* repos */
+.phase-badge.rest  { color: var(--red); }    /* pause */
+.phase-badge.pause { color: var(--green); }  /* travail */
 
 .time-display {
   font-family: 'Bebas Neue', sans-serif;
@@ -520,7 +520,7 @@ if ('serviceWorker' in navigator)
 /* ─── Audio ─── */
 let actx;
 function getCtx() { if (!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); return actx; }
-function beep(freq, dur, vol=0.35) {
+function beep(freq, dur, vol=0.7) {
   const ac=getCtx(), o=ac.createOscillator(), g=ac.createGain();
   o.connect(g); g.connect(ac.destination);
   o.frequency.value = freq;
@@ -528,31 +528,45 @@ function beep(freq, dur, vol=0.35) {
   g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+dur);
   o.start(); o.stop(ac.currentTime+dur);
 }
-function playBip()  { beep(880, 0.18); }
-function playDong() { [440,554,659].forEach((f,i)=>setTimeout(()=>beep(f,0.8,0.45),i*220)); }
-function playRest() { [330,440].forEach((f,i)=>setTimeout(()=>beep(f,0.5,0.4),i*180)); }
-function playPause(){ [523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,1.0,0.45),i*260)); }
+function playBip()  { beep(880, 0.2, 0.8); }
+function playDong() { [440,554,659].forEach((f,i)=>setTimeout(()=>beep(f,0.9,0.7),i*220)); }
+function playRest() { [330,440].forEach((f,i)=>setTimeout(()=>beep(f,0.6,0.6),i*180)); }
+function playPause(){ [523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,1.1,0.7),i*260)); }
 
 /* ─── Constants ─── */
 const RADIUS=52, CIRCUM=2*Math.PI*RADIUS;
 
 /* ─── State ─── */
-let intervalMode = false;  // false=simple, true=work/rest
+/*
+  intervalMode=false → MODE SIMPLE (sablier barré)
+    Sélection : repos(cyan) → pause(rouge)
+    Lance le repos, décrémente sets au lancement
+    Quand sets atteint 0 : lance pause au lieu du repos, remet sets au max
 
-// Simple mode
-let simpleDuration=0, simpleRemaining=0;
+  intervalMode=true → MODE INTERVALLES (sablier non barré)
+    Sélection : travail(vert) → repos(cyan) → pause(rouge)
+    Lance travail, décrémente sets au lancement du travail
+    Quand sets atteint 0 après un repos : lance pause au lieu du travail suivant
+*/
+let intervalMode = false;
 
-// Interval mode
-// phase: 'work' | 'rest' | 'pause'
-let workTime=0, restTime=0, pauseTime=0;
-let ivPhase='work';          // current phase
-let ivSelectStep=0;          // 0=pick work, 1=pick rest, 2=pick pause (after all sets), -1=running
+// Simple mode (sablier barré)
+let restTimeSM=0, pauseTimeSM=0;
+let smPhase='rest';        // 'rest' | 'pause'
+let smDuration=0, smRemaining=0;
+let smSelectStep=0;        // 0=choisir repos, 1=choisir pause, 2=prêt, -1=running
+
+// Interval mode (sablier non barré)
+let workTimeIV=0, restTimeIV=0, pauseTimeIV=0;
+let ivPhase='work';        // 'work' | 'rest' | 'pause'
 let ivDuration=0, ivRemaining=0;
+let ivSelectStep=0;        // 0=choisir travail, 1=choisir repos, 2=choisir pause, 3=prêt, -1=running
 
 // Common
-let running=false, ticker=null, sets=0, bipPlayed=new Set();
-let customSec=[0,0];   // custom button values
-let editingCustom=-1;  // which custom button is being edited
+let running=false, ticker=null, bipPlayed=new Set();
+let sets=0;                // décompteur (part de targetSets, descend à 0)
+let customSec=[0,0];
+let editingCustom=-1;
 
 /* ─── Helpers ─── */
 const $=id=>document.getElementById(id);
@@ -569,6 +583,8 @@ function fmt(s){
   return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 }
 function targetSets(){ return Math.max(1,Math.min(9,parseInt($('inputTarget').value)||3)); }
+function initSets(){ sets=targetSets(); $('setVal').textContent=sets; }
+function decrementSets(){ if(sets>0){ sets--; $('setVal').textContent=sets; } }
 
 /* ─── Sets target display sync ─── */
 $('inputTarget').addEventListener('input',()=>{
@@ -581,21 +597,19 @@ $('inputTarget').addEventListener('input',()=>{
 function toggleMode(){
   stopTimer();
   intervalMode=!intervalMode;
-  const btn=$('btnMode');
-  btn.classList.toggle('interval',intervalMode);
+  $('btnMode').classList.toggle('interval',intervalMode);
   $('modeIndicator').classList.toggle('visible',intervalMode);
-
+  clearPresetHighlights();
+  initSets();
   if(intervalMode){
-    // Reset interval selection
-    workTime=0; restTime=0; pauseTime=0;
+    workTimeIV=0; restTimeIV=0; pauseTimeIV=0;
     ivSelectStep=0;
-    clearPresetHighlights();
-    highlightSelectStep();
+    updateRing(0,'green');
   } else {
-    clearPresetHighlights();
-    if(simpleDuration>0) highlightSimple(simpleDuration);
+    restTimeSM=0; pauseTimeSM=0;
+    smSelectStep=0;
+    updateRing(0,'cyan');
   }
-  renderRing();
   renderUI();
 }
 
@@ -603,63 +617,76 @@ function toggleMode(){
    PRESET SELECTION
 ════════════════════════════════ */
 function clearPresetHighlights(){
-  document.querySelectorAll('.btn-preset').forEach(b=>{
-    b.classList.remove('sel-work','sel-rest','sel-pause');
-  });
+  document.querySelectorAll('.btn-preset').forEach(b=>
+    b.classList.remove('sel-work','sel-rest','sel-pause'));
 }
 
-function highlightSimple(sec){
-  document.querySelectorAll('.btn-preset').forEach(b=>{
-    const s=parseInt(b.dataset.sec);
-    b.classList.toggle('sel-work', s===sec);
-  });
-}
-
-function highlightSelectStep(){
-  // In interval mode show which step we're on via status
-  renderUI();
-}
-
-function selectTime(sec,btn){
+function selectTime(sec, btn){
   getCtx();
   if(!intervalMode){
-    // Simple mode: just set duration
-    if(running) stopTimer();
-    simpleDuration=sec; simpleRemaining=sec;
-    clearPresetHighlights();
-    btn.classList.add('sel-work');
-    updateRing(1,'cyan');
-    renderUI();
-    return;
-  }
-
-  // Interval mode: step through work → rest → (pause after last)
-  if(running) return; // don't change mid-run
-
-  if(ivSelectStep===0){
-    workTime=sec;
-    clearPresetHighlights();
-    btn.classList.add('sel-work');
-    ivSelectStep=1;
-  } else if(ivSelectStep===1){
-    restTime=sec;
-    clearPresetHighlights();
-    // keep work highlighted
-    document.querySelectorAll('.btn-preset').forEach(b=>{
-      if(parseInt(b.dataset.sec)===workTime) b.classList.add('sel-work');
-    });
-    btn.classList.add('sel-rest');
-    ivSelectStep=2; // now ask for pause
-  } else if(ivSelectStep===2){
-    pauseTime=sec;
-    // highlight pause in green
-    document.querySelectorAll('.btn-preset').forEach(b=>{
-      const s=parseInt(b.dataset.sec);
-      if(s===workTime) b.classList.add('sel-work');
-      else if(s===restTime) b.classList.add('sel-rest');
-    });
-    btn.classList.add('sel-pause');
-    ivSelectStep=3; // ready to run
+    /* ── MODE SIMPLE ──
+       step 0 → repos (cyan)
+       step 1 → pause (rouge) */
+    if(running) return;
+    if(smSelectStep===0){
+      restTimeSM=sec;
+      clearPresetHighlights();
+      btn.classList.add('sel-work');   // cyan = repos
+      smSelectStep=1;
+    } else if(smSelectStep===1){
+      pauseTimeSM=sec;
+      document.querySelectorAll('.btn-preset').forEach(b=>{
+        if(parseInt(b.dataset.sec)===restTimeSM) b.classList.add('sel-work');
+      });
+      btn.classList.add('sel-rest');   // rouge = pause
+      smSelectStep=2;
+    } else if(smSelectStep===2){
+      // Re-sélection : recommencer la config
+      restTimeSM=sec;
+      clearPresetHighlights();
+      btn.classList.add('sel-work');
+      smSelectStep=1;
+    }
+    smDuration=restTimeSM; smRemaining=restTimeSM;
+    smPhase='rest';
+    updateRing(restTimeSM>0?1:0,'cyan');
+  } else {
+    /* ── MODE INTERVALLES ──
+       step 0 → travail (vert)
+       step 1 → repos  (cyan)
+       step 2 → pause  (rouge) */
+    if(running) return;
+    if(ivSelectStep===0){
+      workTimeIV=sec;
+      clearPresetHighlights();
+      btn.classList.add('sel-pause');  // vert = travail
+      ivSelectStep=1;
+    } else if(ivSelectStep===1){
+      restTimeIV=sec;
+      document.querySelectorAll('.btn-preset').forEach(b=>{
+        if(parseInt(b.dataset.sec)===workTimeIV) b.classList.add('sel-pause');
+      });
+      btn.classList.add('sel-work');   // cyan = repos
+      ivSelectStep=2;
+    } else if(ivSelectStep===2){
+      pauseTimeIV=sec;
+      document.querySelectorAll('.btn-preset').forEach(b=>{
+        const s=parseInt(b.dataset.sec);
+        if(s===workTimeIV) b.classList.add('sel-pause');
+        else if(s===restTimeIV) b.classList.add('sel-work');
+      });
+      btn.classList.add('sel-rest');   // rouge = pause
+      ivSelectStep=3;
+    } else if(ivSelectStep===3){
+      // Re-sélection : recommencer
+      workTimeIV=sec;
+      clearPresetHighlights();
+      btn.classList.add('sel-pause');
+      ivSelectStep=1;
+    }
+    ivDuration=workTimeIV; ivRemaining=workTimeIV;
+    ivPhase='work';
+    updateRing(workTimeIV>0?1:0,'green');
   }
   renderUI();
 }
@@ -667,14 +694,11 @@ function selectTime(sec,btn){
 /* ════════════════════════════════
    CUSTOM BUTTONS
 ════════════════════════════════ */
-// Long-press handling
 let pressTimer=null;
 function handleCustomClick(idx){
-  // Simple click: if time set, select it; else open modal
   if(customSec[idx]>0) selectTime(customSec[idx], $(`customBtn${idx}`));
   else openCustom(idx);
 }
-// Setup long-press on custom buttons
 document.querySelectorAll('.btn-preset.custom').forEach((btn,idx)=>{
   btn.addEventListener('pointerdown',()=>{
     pressTimer=setTimeout(()=>{ pressTimer=null; openCustom(idx); },500);
@@ -698,9 +722,8 @@ function confirmCustom(){
   const total=m*60+s;
   if(total<1){ closeModal(); return; }
   customSec[editingCustom]=total;
-  // Format label like the other buttons
   const lbl = total>=60
-    ? `${Math.floor(total/60)}m${total%60>0?String(total%60).padStart(2,'0'):''}` 
+    ? `${Math.floor(total/60)}m${total%60>0?String(total%60).padStart(2,'0'):''}`
     : total+'s';
   $(`customLabel${editingCustom}`).textContent=lbl;
   $(`customHint${editingCustom}`).textContent='✏ éditer';
@@ -714,130 +737,154 @@ function confirmCustom(){
 ════════════════════════════════ */
 function togglePlay(){
   getCtx();
+  if(running){ pauseTimer(); return; }
+
   if(!intervalMode){
-    if(simpleDuration===0) return;
-    if(running){
-      pause();
-    } else {
-      if(simpleRemaining===0){ simpleRemaining=simpleDuration; bipPlayed.clear(); }
-      sets++; // increment on launch
-      $('setVal').textContent=sets;
-      startSimple();
-    }
+    // MODE SIMPLE : lance repos
+    if(smSelectStep<2) return;          // pas encore configuré
+    if(smRemaining===0){ smRemaining=smDuration; bipPlayed.clear(); }
+    decrementSets();
+    startEngine(smRemaining/smDuration,'cyan');
+    ticker=setInterval(tickSimple,1000);
   } else {
-    // interval mode
-    if(running){ pause(); return; }
-    if(ivSelectStep<3 && ivSelectStep>0) return; // not configured yet for rest/pause
-    if(workTime===0) return;
-    // Start or resume
+    // MODE INTERVALLES : lance travail
+    if(ivSelectStep<3) return;
     if(ivSelectStep===3){
-      // Fresh start: begin work phase
-      ivPhase='work';
-      ivDuration=workTime; ivRemaining=workTime;
-      ivSelectStep=-1; // running
-      sets++; $('setVal').textContent=sets;
+      ivPhase='work'; ivDuration=workTimeIV; ivRemaining=workTimeIV;
+      ivSelectStep=-1;
+      decrementSets();
       bipPlayed.clear();
-      startInterval();
+      startEngine(1,'green');
+      ticker=setInterval(tickInterval,1000);
     } else if(ivSelectStep===-1){
-      // Was paused, resume
-      startInterval();
+      // Reprise après pause manuelle
+      const col = ivPhase==='work'?'green': ivPhase==='rest'?'cyan':'red';
+      startEngine(ivRemaining/ivDuration, col);
+      ticker=setInterval(tickInterval,1000);
     }
   }
 }
 
-function pause(){
-  clearInterval(ticker); ticker=null; running=false;
-  $('btnPlay').textContent='▶';
-  $('btnPlay').classList.remove('running');
-  renderUI();
-}
-
-function startSimple(){
-  running=true;
-  $('btnPlay').textContent='⏸';
-  $('btnPlay').classList.add('running');
-  renderUI();
-  ticker=setInterval(tickSimple,1000);
-}
-
-function tickSimple(){
-  if(simpleRemaining<=0){
-    clearInterval(ticker); ticker=null; running=false;
-    $('btnPlay').textContent='▶'; $('btnPlay').classList.remove('running');
-    updateRing(0,'cyan');
-    playDong();
-    renderUI(); return;
-  }
-  if(simpleRemaining<=5 && !bipPlayed.has(simpleRemaining)){
-    bipPlayed.add(simpleRemaining); playBip();
-  }
-  simpleRemaining--;
-  updateRing(simpleRemaining/simpleDuration,'cyan');
-  renderUI();
-}
-
-function startInterval(){
+function startEngine(frac,col){
   running=true;
   $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running');
-  // ring color by phase
-  const col = ivPhase==='work'?'cyan': ivPhase==='rest'?'red':'green';
-  updateRing(ivRemaining/ivDuration, col);
+  updateRing(frac,col);
   renderUI();
-  ticker=setInterval(tickInterval,1000);
 }
 
+function pauseTimer(){
+  clearInterval(ticker); ticker=null; running=false;
+  $('btnPlay').textContent='▶'; $('btnPlay').classList.remove('running');
+  renderUI();
+}
+
+/* ── Simple ticks ── */
+function tickSimple(){
+  if(smRemaining<=0){
+    clearInterval(ticker); ticker=null; running=false;
+    $('btnPlay').textContent='▶'; $('btnPlay').classList.remove('running');
+    nextPhaseSimple(); return;
+  }
+  if(smRemaining<=3 && !bipPlayed.has(smRemaining)){ bipPlayed.add(smRemaining); playBip(); }
+  smRemaining--;
+  updateRing(smRemaining/smDuration, smPhase==='rest'?'cyan':'red');
+  renderUI();
+}
+
+function nextPhaseSimple(){
+  bipPlayed.clear();
+  if(smPhase==='rest'){
+    playDong();
+    if(sets===0){
+      // Tous les sets terminés → pause + reset
+      smPhase='pause';
+      smDuration=pauseTimeSM; smRemaining=pauseTimeSM;
+      updateRing(1,'red');
+      renderUI();
+      if(pauseTimeSM>0){
+        running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running');
+        ticker=setInterval(tickSimple,1000);
+      }
+    } else {
+      // Encore des sets → prochain repos
+      smPhase='rest';
+      smDuration=restTimeSM; smRemaining=restTimeSM;
+      decrementSets();
+      updateRing(1,'cyan');
+      renderUI();
+      running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running');
+      ticker=setInterval(tickSimple,1000);
+    }
+  } else if(smPhase==='pause'){
+    // Pause terminée → reset et attente
+    playPause();
+    smPhase='rest';
+    smDuration=restTimeSM; smRemaining=restTimeSM;
+    initSets();
+    updateRing(restTimeSM>0?1:0,'cyan');
+    smSelectStep=2;
+    renderUI();
+  }
+}
+
+/* ── Interval ticks ── */
 function tickInterval(){
   if(ivRemaining<=0){
     clearInterval(ticker); ticker=null; running=false;
     $('btnPlay').textContent='▶'; $('btnPlay').classList.remove('running');
-    nextPhase();
-    return;
+    nextPhaseInterval(); return;
   }
-  if(ivRemaining<=5 && !bipPlayed.has(ivRemaining)){
-    bipPlayed.add(ivRemaining); playBip();
-  }
+  if(ivRemaining<=3 && !bipPlayed.has(ivRemaining)){ bipPlayed.add(ivRemaining); playBip(); }
   ivRemaining--;
-  const col = ivPhase==='work'?'cyan': ivPhase==='rest'?'red':'green';
+  const col = ivPhase==='work'?'green': ivPhase==='rest'?'cyan':'red';
   updateRing(ivRemaining/ivDuration, col);
   renderUI();
 }
 
-function nextPhase(){
-  const totalSets=targetSets();
+function nextPhaseInterval(){
   bipPlayed.clear();
-
   if(ivPhase==='work'){
-    // Work done → rest (or pause if last set)
     playRest();
-    if(sets>=totalSets){
-      // Last set: go to pause
-      ivPhase='pause';
-      ivDuration=pauseTime; ivRemaining=pauseTime;
-      updateRing(1,'green');
-      renderUI();
-      // Auto-start pause
-      if(pauseTime>0){ running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running'); ticker=setInterval(tickInterval,1000); }
-    } else {
-      ivPhase='rest';
-      ivDuration=restTime; ivRemaining=restTime;
-      updateRing(1,'red');
-      renderUI();
-      if(restTime>0){ running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running'); ticker=setInterval(tickInterval,1000); }
-    }
-  } else if(ivPhase==='rest'){
-    // Rest done → next work
-    playDong();
-    ivPhase='work';
-    ivDuration=workTime; ivRemaining=workTime;
-    sets++; $('setVal').textContent=sets;
+    // Après travail → repos
+    ivPhase='rest';
+    ivDuration=restTimeIV; ivRemaining=restTimeIV;
     updateRing(1,'cyan');
     renderUI();
-    if(workTime>0){ running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running'); ticker=setInterval(tickInterval,1000); }
+    if(restTimeIV>0){
+      running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running');
+      ticker=setInterval(tickInterval,1000);
+    }
+  } else if(ivPhase==='rest'){
+    playDong();
+    if(sets===0){
+      // Tous les sets terminés → pause + reset
+      ivPhase='pause';
+      ivDuration=pauseTimeIV; ivRemaining=pauseTimeIV;
+      updateRing(1,'red');
+      renderUI();
+      if(pauseTimeIV>0){
+        running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running');
+        ticker=setInterval(tickInterval,1000);
+      }
+    } else {
+      // Prochain travail
+      ivPhase='work';
+      ivDuration=workTimeIV; ivRemaining=workTimeIV;
+      decrementSets();
+      bipPlayed.clear();
+      updateRing(1,'green');
+      renderUI();
+      running=true; $('btnPlay').textContent='⏸'; $('btnPlay').classList.add('running');
+      ticker=setInterval(tickInterval,1000);
+    }
   } else if(ivPhase==='pause'){
-    // All done!
+    // Pause terminée → reset
     playPause();
-    ivSelectStep=3; // reset to configurable
-    updateRing(0,'green');
+    ivPhase='work';
+    ivDuration=workTimeIV; ivRemaining=workTimeIV;
+    initSets();
+    updateRing(workTimeIV>0?1:0,'green');
+    ivSelectStep=3;
     renderUI();
   }
 }
@@ -846,29 +893,24 @@ function stopTimer(){
   clearInterval(ticker); ticker=null; running=false;
   $('btnPlay').textContent='▶'; $('btnPlay').classList.remove('running');
   bipPlayed.clear();
+  initSets();
   if(!intervalMode){
-    simpleRemaining=simpleDuration;
-    updateRing(simpleDuration>0?1:0,'cyan');
+    smPhase='rest';
+    smDuration=restTimeSM; smRemaining=restTimeSM;
+    updateRing(restTimeSM>0?1:0,'cyan');
   } else {
-    ivPhase='work';
-    ivRemaining=workTime; ivDuration=workTime;
-    ivSelectStep= (workTime>0&&restTime>0&&pauseTime>0)?3:0;
-    updateRing(workTime>0?1:0,'cyan');
+    ivPhase='work'; ivSelectStep= (workTimeIV>0&&restTimeIV>0&&pauseTimeIV>0)?3:0;
+    ivDuration=workTimeIV; ivRemaining=workTimeIV;
+    updateRing(workTimeIV>0?1:0,'green');
   }
   renderUI();
 }
 
-function resetSets(){ sets=0; $('setVal').textContent=0; }
+function resetSets(){ initSets(); }
 
 /* ════════════════════════════════
    RENDER
 ════════════════════════════════ */
-function renderRing(){
-  if(!intervalMode){
-    updateRing(simpleDuration>0? simpleRemaining/simpleDuration:0,'cyan');
-  }
-}
-
 function renderUI(){
   const pill=$('statusPill');
   const disp=$('timeDisplay');
@@ -876,77 +918,87 @@ function renderUI(){
   const badge=$('phaseBadge');
 
   if(!intervalMode){
-    // ── Simple mode ──
-    const danger=simpleRemaining<=5&&simpleRemaining>0&&running;
-    disp.textContent=fmt(simpleRemaining);
-    disp.className='time-display'+(danger?' alarm':'');
-    badge.textContent=''; badge.className='phase-badge';
-    sub.textContent=running?(danger?'ALERTE !':'EN COURS'):(simpleRemaining===0&&simpleDuration>0)?'TERMINÉ':'PRÊT';
+    /* ── MODE SIMPLE ──
+       repos = cyan, pause = rouge */
+    const rem = smRemaining;
+    const dur = smDuration;
+    const danger = rem<=3&&rem>0&&running;
+    const isRest  = smPhase==='rest';
+    const isPause = smPhase==='pause';
 
-    if(!running&&simpleRemaining===simpleDuration&&simpleDuration>0){
-      pill.textContent='EN ATTENTE'; pill.className='status-pill';
-    } else if(running){
-      pill.textContent=danger?'FIN PROCHE':'EN COURS';
-      pill.className='status-pill '+(danger?'danger':'running');
-    } else if(simpleRemaining===0&&simpleDuration>0){
-      pill.textContent='TERMINÉ'; pill.className='status-pill done';
+    if(smSelectStep===0){
+      disp.textContent='00:00'; disp.className='time-display';
+      badge.textContent='REPOS'; badge.className='phase-badge work';
+      sub.textContent='CHOISIR TEMPS REPOS';
+      pill.textContent='↑ SÉLECT. REPOS'; pill.className='status-pill running';
+    } else if(smSelectStep===1){
+      disp.textContent=fmt(restTimeSM); disp.className='time-display';
+      badge.textContent='PAUSE'; badge.className='phase-badge rest';
+      sub.textContent='CHOISIR TEMPS PAUSE';
+      pill.textContent='↑ SÉLECT. PAUSE'; pill.className='status-pill resting';
     } else {
-      pill.textContent='EN ATTENTE'; pill.className='status-pill';
+      disp.textContent=fmt(rem);
+      disp.className='time-display'+(danger?' alarm': isPause?' red':'');
+      badge.textContent=isRest?'REPOS':'PAUSE';
+      badge.className='phase-badge '+(isRest?'work':'rest');
+      if(running){
+        sub.textContent=danger?'ALERTE !':(isRest?'REPOS EN COURS':'PAUSE EN COURS');
+        pill.textContent=danger?'FIN PROCHE':(isRest?'REPOS':'PAUSE');
+        pill.className='status-pill '+(danger?'danger': isRest?'running':'resting');
+      } else {
+        sub.textContent='PRÊT';
+        pill.textContent='EN ATTENTE'; pill.className='status-pill';
+      }
     }
-    // dots hidden
     ['dot0','dot1','dot2'].forEach(id=>$(id).className='phase-dot');
 
   } else {
-    // ── Interval mode ──
+    /* ── MODE INTERVALLES ──
+       travail = vert, repos = cyan, pause = rouge */
     if(ivSelectStep===0){
       disp.textContent='00:00'; disp.className='time-display';
-      badge.textContent='TRAVAIL'; badge.className='phase-badge work';
+      badge.textContent='TRAVAIL'; badge.className='phase-badge pause';
       sub.textContent='CHOISIR TEMPS TRAVAIL';
-      pill.textContent='↑ SÉLECT. TRAVAIL'; pill.className='status-pill running';
+      pill.textContent='↑ SÉLECT. TRAVAIL'; pill.className='status-pill pausing';
     } else if(ivSelectStep===1){
-      disp.textContent=fmt(workTime); disp.className='time-display';
-      badge.textContent='REPOS'; badge.className='phase-badge rest';
+      disp.textContent=fmt(workTimeIV); disp.className='time-display green';
+      badge.textContent='REPOS'; badge.className='phase-badge work';
       sub.textContent='CHOISIR TEMPS REPOS';
-      pill.textContent='↑ SÉLECT. REPOS'; pill.className='status-pill resting';
+      pill.textContent='↑ SÉLECT. REPOS'; pill.className='status-pill running';
     } else if(ivSelectStep===2){
-      disp.textContent=fmt(restTime); disp.className='time-display red';
-      badge.textContent='PAUSE'; badge.className='phase-badge pause';
+      disp.textContent=fmt(restTimeIV); disp.className='time-display';
+      badge.textContent='PAUSE'; badge.className='phase-badge rest';
       sub.textContent='CHOISIR TEMPS PAUSE';
-      pill.textContent='↑ SÉLECT. PAUSE'; pill.className='status-pill pausing';
+      pill.textContent='↑ SÉLECT. PAUSE'; pill.className='status-pill resting';
     } else {
-      // Running or ready
-      const rem = ivRemaining;
-      const danger=rem<=5&&rem>0&&running;
-      const col = ivPhase==='work'?'':ivPhase==='rest'?' red':' green';
+      const rem=ivRemaining;
+      const danger=rem<=3&&rem>0&&running;
+      const colClass = ivPhase==='work'?' green': ivPhase==='rest'?'':' red';
       disp.textContent=fmt(rem);
-      disp.className='time-display'+(danger?' alarm':col);
-
-      const phaseLabel={'work':'TRAVAIL','rest':'REPOS','pause':'PAUSE'}[ivPhase];
-      badge.textContent=phaseLabel;
-      badge.className='phase-badge '+ivPhase;
-
+      disp.className='time-display'+(danger?' alarm':colClass);
+      const labels={'work':'TRAVAIL','rest':'REPOS','pause':'PAUSE'};
+      badge.textContent=labels[ivPhase];
+      badge.className='phase-badge '+(ivPhase==='work'?'pause': ivPhase==='rest'?'work':'rest');
       if(running){
-        sub.textContent=danger?'ALERTE !':phaseLabel+' EN COURS';
-        const pc=ivPhase==='work'?'running':ivPhase==='rest'?'resting':'pausing';
-        pill.textContent=danger?'FIN PROCHE':phaseLabel;
+        sub.textContent=danger?'ALERTE !':labels[ivPhase]+' EN COURS';
+        const pc=ivPhase==='work'?'pausing': ivPhase==='rest'?'running':'resting';
+        pill.textContent=danger?'FIN PROCHE':labels[ivPhase];
         pill.className='status-pill '+(danger?'danger':pc);
       } else {
         sub.textContent='PRÊT';
         pill.textContent='PRÊT'; pill.className='status-pill';
       }
     }
-
-    // Phase dots
-    $('dot0').className='phase-dot'+(ivPhase==='work'&&ivSelectStep===-1?' work':'');
-    $('dot1').className='phase-dot'+(ivPhase==='rest'&&ivSelectStep===-1?' rest':'');
-    $('dot2').className='phase-dot'+(ivPhase==='pause'&&ivSelectStep===-1?' pause':'');
+    $('dot0').className='phase-dot'+(ivPhase==='work'&&ivSelectStep===-1?' pause':'');
+    $('dot1').className='phase-dot'+(ivPhase==='rest'&&ivSelectStep===-1?' work':'');
+    $('dot2').className='phase-dot'+(ivPhase==='pause'&&ivSelectStep===-1?' rest':'');
   }
 
-  // Sets target display
   $('setTargetDisp').textContent='/'+$('inputTarget').value;
 }
 
 // Init
+initSets();
 updateRing(0,'cyan');
 renderUI();
 </script>
